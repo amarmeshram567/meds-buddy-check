@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -7,10 +7,15 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Calendar as CalendarIcon, Image, User } from "lucide-react";
 import MedicationTracker from "./MedicationTracker";
 import { format, isToday, isBefore, startOfDay } from "date-fns";
+import axios from "axios";
+import { toast } from "sonner";
+import { useAppContext } from "@/context/AppContext";
 
 const PatientDashboard = () => {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [takenDates, setTakenDates] = useState<Set<string>>(new Set());
+
+  const {axios} = useAppContext()
 
   const today = new Date();
   const todayStr = format(today, 'yyyy-MM-dd');
@@ -18,11 +23,36 @@ const PatientDashboard = () => {
   const isTodaySelected = isToday(selectedDate);
   const isSelectedDateTaken = takenDates.has(selectedDateStr);
 
-  const handleMarkTaken = (date: string, imageFile?: File) => {
+  const handleMarkTaken = async (date: string, imageFile?: File) => {
     setTakenDates(prev => new Set(prev).add(date));
     console.log('Medication marked as taken for:', date);
     if (imageFile) {
       console.log('Proof image uploaded:', imageFile.name);
+    }
+
+    try {
+      // mark the medicatin as taken
+      await axios.post(`/api/medications/medicine/mark`, {date});
+
+      // upload photo if exists 
+      if (imageFile) {
+        const formData = new FormData();
+        formData.append('photo', imageFile);
+
+        await axios.post(`api/medications/upload-photo/`, formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          }
+        });
+      }
+
+      setTakenDates(prev => new Set(prev).add(date));
+      toast.success('Medication marked as taken');
+
+
+    } catch (error) {
+      console.error(error.message);
+      toast.error("Failed to mark medication as taken")
     }
   };
 

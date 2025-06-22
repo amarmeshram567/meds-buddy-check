@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,17 +8,95 @@ import { Calendar } from "@/components/ui/calendar";
 import { Users, Bell, Calendar as CalendarIcon, Mail, AlertTriangle, Check, Clock, Camera } from "lucide-react";
 import NotificationSettings from "./NotificationSettings";
 import { format, subDays, isToday, isBefore, startOfDay } from "date-fns";
+import { useAppContext } from "@/context/AppContext";
+import { toast } from "sonner";
+import AddMedication from "./AddMedication";
+
 
 const CaretakerDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [loading, setLoading] = useState(true);
+  // const [medication, setMedication] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
 
-  // Mock data for demonstration
-  const patientName = "Eleanor Thompson";
-  const adherenceRate = 85;
-  const currentStreak = 5;
-  const missedDoses = 3;
+  const [adherenceRate, setAdherenceRate] = useState(0)
+  const [currentStreak, setCurrentStreak] = useState(0)
+  const [missedDoses, setMissedDoses] = useState(0)
+  const [takenThisWeek, setTakenThisWeek] = useState(0)
 
+  const [medicationList, setMedicationList] = useState([])
+
+  const [patientName, setPatientName] = useState("Eleanor Thompson")
+
+  const {axios} = useAppContext()
+
+  useEffect(() => {
+    const fetchAdherenceData = async () => {
+      try {
+        const res = await axios.get("/api/medications/adherence");
+        if (res.data.sucess) {
+          console.log(res.data)
+          setAdherenceRate(res.data.adherence);
+          setCurrentStreak(res.data.streak);
+          setMissedDoses(res.data.missedDoses);
+          setTakenThisWeek(res.data.takenThisWeek)
+        }
+        else {
+          setErr("Failed to fetch adherence data")
+        }
+      } catch (error) {
+        console.error(error);
+        setErr("Error fetching adherence data");
+      }
+      finally {
+        setLoading(false);
+      }
+      
+    };
+    fetchAdherenceData();
+  })
+
+  useEffect(() => {
+    const storeUsername = localStorage.getItem("username");
+    console.log(storeUsername)
+    if(storeUsername) {
+      setPatientName(storeUsername)
+    }
+  }, [])
+
+
+  // fetching medication list
+  const fetchMedications = async () => {
+    try {
+
+      const token = localStorage.getItem('token')
+
+      const res = await axios.get("/api/medications/get-medicine", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      console.log(res.data)
+
+      if (res.data.success){
+        setMedicationList(res.data.medications)
+        
+      }
+      else{
+        toast.error("No medication data found")
+      }
+
+    } catch (error) {
+      toast.error("Failed to load medications")
+    }
+  }
+
+  useEffect(() => {
+    fetchMedications();
+  }, [])
+  
   // Mock data for taken medications (same as in PatientDashboard)
   const takenDates = new Set([
     "2024-06-10", "2024-06-09", "2024-06-07", "2024-06-06", 
@@ -89,12 +167,45 @@ const CaretakerDashboard = () => {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="activity">Recent Activity</TabsTrigger>
           <TabsTrigger value="calendar">Calendar View</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="add-medicine">Add Medicine</TabsTrigger>
         </TabsList>
+
+
+        {/* besics */}
+        <TabsContent value="add-medicine" className="space-y-6">
+          <div className="grid lg:grid-cols-2 gap-6">
+          <AddMedication onAdded={fetchMedications} />
+          <Card>
+            <CardHeader>
+              <CardTitle>Medication List</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {medicationList?.length > 0 ? (
+                medicationList.map((med, index) => (
+                <div key={index} className="border rounded-lg p-4">
+                  <p className="font-semibold">Medicine Name : <span className="font-semibold text-gray-500"> {med.name}</span></p>
+                  <p className="text-sm font-semibold">
+                    Dosage : <span className="font-semibold text-gray-500">{med.dosage} </span>
+                  </p>
+                  <p className="text-sm font-semibold">
+                    Frequency : <span className="font-semibold text-gray-500">{med.frequency}</span>
+                  </p>
+                </div>
+              ))
+              ) : (
+                <p className="text-muted-foreground">No medications available.</p>
+              )}
+              
+            </CardContent>
+          </Card>
+          </div>
+        </TabsContent>
+        {/* basics end */}
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid lg:grid-cols-2 gap-6">
@@ -341,9 +452,10 @@ const CaretakerDashboard = () => {
         </TabsContent>
 
         <TabsContent value="notifications">
-          <NotificationSettings />
+          <NotificationSettings patientName={patientName} adherenceRate={adherenceRate} streak={currentStreak} />
         </TabsContent>
       </Tabs>
+
     </div>
   );
 };

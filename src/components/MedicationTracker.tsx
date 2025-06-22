@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Check, Image, Camera, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { useAppContext } from "@/context/AppContext";
 
 interface MedicationTrackerProps {
   date: string;
@@ -17,6 +18,8 @@ const MedicationTracker = ({ date, isTaken, onMarkTaken, isToday }: MedicationTr
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {axios} = useAppContext()
 
   const dailyMedication = {
     name: "Daily Medication Set",
@@ -36,10 +39,43 @@ const MedicationTracker = ({ date, isTaken, onMarkTaken, isToday }: MedicationTr
     }
   };
 
-  const handleMarkTaken = () => {
-    onMarkTaken(date, selectedImage || undefined);
-    setSelectedImage(null);
-    setImagePreview(null);
+  const handleMarkTaken = async () => {
+  
+    try {
+      const token = localStorage.getItem('token')
+
+      // mark medication as taken 
+      await axios.post(
+        "/api/medications/medicine/mark", {date},
+        {headers: {
+          Authorization: `Bearer ${token}`
+        }}
+      )
+
+      // upload proof photo if selected 
+      if (selectedImage) {
+        const formData = new FormData();
+        formData.append('photo', selectedImage);
+        formData.append("date", date);
+
+        await axios.post("/api/medications/upload-photo", formData, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          }
+        })
+      }
+
+      // updating 
+      onMarkTaken(date, selectedImage || undefined);
+      setSelectedImage(null);
+      setImagePreview(null);
+
+    } catch (error) {
+      console.error(error)
+      alert("Something went wrong while marking medication as taken.")
+    }
+
   };
 
   if (isTaken) {
@@ -76,6 +112,9 @@ const MedicationTracker = ({ date, isTaken, onMarkTaken, isToday }: MedicationTr
             </Badge>
           </CardContent>
         </Card>
+
+        
+
       </div>
     );
   }

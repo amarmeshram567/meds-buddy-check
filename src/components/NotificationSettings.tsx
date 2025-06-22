@@ -7,7 +7,15 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Mail, Bell } from "lucide-react";
-const NotificationSettings = () => {
+
+interface NotificationSettingsProps {
+  patientName: string;
+  adherenceRate: number;
+  streak: number;
+}
+
+
+const NotificationSettings = ({patientName, adherenceRate, streak}: NotificationSettingsProps) => {
   const [settings, setSettings] = useState({
     emailNotifications: true,
     emailAddress: "caretaker@example.com",
@@ -118,17 +126,17 @@ const NotificationSettings = () => {
         <CardContent>
           <div className="bg-gray-50 p-4 rounded-lg border">
             <div className="text-sm">
-              <div className="font-medium mb-2">Subject: Medication Alert - Eleanor Thompson</div>
+              <div className="font-medium mb-2">Subject: Medication Alert - {patientName}</div>
               <div className="text-muted-foreground">
                 <p className="mb-2">Hello,</p>
                 <p className="mb-2">
-                  This is a reminder that Eleanor Thompson has not taken her medication today.
+                  This is a reminder that {patientName} has not taken her medication today.
                 </p>
                 <p className="mb-2">
                   Please check with her to ensure she takes her prescribed medication.
                 </p>
                 <p>
-                  Current adherence rate: 85% (5-day streak)
+                  Current adherence rate: {adherenceRate} % ({streak}-day streak)
                 </p>
               </div>
             </div>
